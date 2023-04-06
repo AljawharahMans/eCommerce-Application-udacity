@@ -13,6 +13,7 @@ import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
@@ -27,55 +28,66 @@ import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 public class OrderControllerTest {
-    @InjectMocks
     private OrderController orderController;
+    private OrderRepository orderRepo = mock(OrderRepository.class);
+    private UserRepository userRepo = mock(UserRepository.class);
 
-    @Mock
-    private UserRepository userRepo;
-
-    @Mock
-    private OrderRepository orderRepository;
     @Before
     public void setUp(){
-        Item firstItem = new Item(1L, "first product", BigDecimal.valueOf(10.00), "first product description");
-        List<Item> itemList = Collections.singletonList(firstItem);
+        orderController = new OrderController(null, null);
+        TestUtils.injectObjects(orderController, "orderRepository", orderRepo);
+        TestUtils.injectObjects(orderController, "userRepository", userRepo);
+        Item item = new Item(1L, "item", BigDecimal.valueOf(89), "item description");
+        List<Item> items = new ArrayList<Item>();
+        items.add(item);
         User user = new User();
         Cart cart = new Cart();
-        user.setId(1);
-        user.setUsername("aljawharah");
-        user.setPassword("aA123");
-        cart.setId(1L);
+        user.setId(0);
+        user.setUsername("test");
+        user.setPassword("testPassword");
+        cart.setId(0L);
         cart.setUser(user);
-        cart.setItems(itemList);
-        cart.setTotal(BigDecimal.valueOf(100));
+        cart.setItems(items);
+        BigDecimal total = BigDecimal.valueOf(2.99);
+        cart.setTotal(total);
         user.setCart(cart);
-        when(userRepo.findByUsername("aljawharah")).thenReturn(user);
-        when(userRepo.findByUsername("notFoundUser")).thenReturn(null);
+        when(userRepo.findByUsername("test")).thenReturn(user);
+        when(userRepo.findByUsername("someone")).thenReturn(null);
+
     }
 
     @Test
-    public void testSubmitOrder() {
-        ResponseEntity<UserOrder> responseEntity = orderController.submit("aljawharah");
-        assertNotNull(responseEntity);
-        assertEquals(200, responseEntity.getStatusCodeValue());
-        UserOrder order = responseEntity.getBody();
+    public void submit_order_happy_path() {
+        ResponseEntity<UserOrder> response = orderController.submit("test");
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        UserOrder order = response.getBody();
         assertNotNull(order);
         assertEquals(1, order.getItems().size());
-        responseEntity = orderController.submit("notFoundUser");
-        assertNotNull(responseEntity);
-        assertEquals(404, responseEntity.getStatusCodeValue());
     }
 
     @Test
-    public void testGetOrdersForUser() {
-        ResponseEntity<List<UserOrder>> responseEntity = orderController.getOrdersForUser("aljawharah");
-        assertNotNull(responseEntity);
-        assertEquals(200, responseEntity.getStatusCodeValue());
-        List<UserOrder> orders = responseEntity.getBody();
-        assertNotNull(orders);
-        responseEntity = orderController.getOrdersForUser("notFoundUser");
-        assertNotNull(responseEntity);
-        assertEquals(404, responseEntity.getStatusCodeValue());
+    public void submit_order_user_not_found() {
+        ResponseEntity<UserOrder> response = orderController.submit("someone");
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
+    @Test
+    public void get_orders_for_user_happy_path() {
+        ResponseEntity<List<UserOrder>> ordersForUser = orderController.getOrdersForUser("test");
+        assertNotNull(ordersForUser);
+        assertEquals(HttpStatus.OK, ordersForUser.getStatusCode());
+        List<UserOrder> orders = ordersForUser.getBody();
+        assertNotNull(orders);
+
+    }
+
+    @Test
+    public void get_orders_for_user_not_found() {
+        ResponseEntity<List<UserOrder>> ordersForUser = orderController.getOrdersForUser("someone");
+        assertNotNull(ordersForUser);
+        assertEquals(HttpStatus.NOT_FOUND, ordersForUser.getStatusCode());
+
+    }
 }
